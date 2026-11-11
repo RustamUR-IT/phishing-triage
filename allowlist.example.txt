@@ -1,0 +1,4 @@
+# One domain per line. Subdomains match automatically
+# (example.com also allows cdn.example.com). Lines starting with # are ignored.
+example.com
+example.org
