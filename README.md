@@ -1,6 +1,6 @@
 # phishtriage
 
-[![CI](https://github.com/RustamUR-IT/phish-triage/actions/workflows/ci.yml/badge.svg)](https://github.com/RustamUR-IT/phish-triage/actions/workflows/ci.yml)
+[![CI](https://github.com/RustamUR-IT/phishing-triage/actions/workflows/ci.yml/badge.svg)](https://github.com/RustamUR-IT/phishing-triage/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -111,7 +111,7 @@ Every finding carries the techniques it is evidence for. The report ends with th
 Requires Python 3.11+. No third-party runtime dependencies.
 
 ```bash
-git clone https://github.com/RustamUR-IT/phish-triage.git && cd phish-triage
+git clone https://github.com/RustamUR-IT/phishing-triage.git && cd phishing-triage
 ```
 
 ```bash
