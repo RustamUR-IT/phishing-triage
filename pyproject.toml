@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phishtriage"
+version = "0.1.0"
+description = "First-five-minutes triage for suspicious .eml files: headers, URLs, attachments, ATT&CK-tagged report."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = []  # standard library only
+
+[project.optional-dependencies]
+dev = ["pytest==9.2.0", "ruff==0.17.4"]
+
+[project.scripts]
+phishtriage = "phishtriage.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "S"]
+ignore = ["S310"]  # urllib with fixed https:// API endpoints is intentional
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+"scripts/make_samples.py" = ["E501"]  # raw RFC 5322 sample text

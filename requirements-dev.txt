@@ -1,0 +1,4 @@
+# Runtime has no third-party dependencies (stdlib only).
+# Pinned development / CI tooling:
+pytest==9.2.0
+ruff==0.17.4
