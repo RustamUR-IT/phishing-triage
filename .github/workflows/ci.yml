@@ -39,3 +39,13 @@ jobs:
       - name: Smoke test CLI on samples
         run: |
           for f in samples/*.eml; do phishtriage "$f" -a allowlist.example.txt > /dev/null; done
+
+  kql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-save --no-package-lock @kusto/language-service-next@12.4.1
+      - run: node scripts/check_kql.cjs

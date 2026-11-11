@@ -1,0 +1,77 @@
+// Title:        Inbox rule that forwards mail externally or hides mail (BEC after phishing)
+// ATT&CK:       T1564.008, T1114.003
+// Tactics:      DefenseEvasion, Collection
+// Severity:     Medium; High when the rule both hides and forwards, or hides by keyword
+//               (Severity column)
+// Data sources: OfficeActivity (Microsoft 365 connector, Exchange audit)
+// Schedule:     run every 1h, look back 1h, alert when results > 0, one alert per row
+// Entities:     Account = Mailbox, IP = ClientIp
+// Description:  After a successful phish the attacker often creates an inbox rule to hide
+//               replies, security notices and "did you send this?" mails (T1564.008), or to
+//               forward the mailbox to an outside address (T1114.003). Flags New-InboxRule and
+//               Set-InboxRule when the rule forwards or redirects outside the organisation,
+//               or when it deletes mail / moves it to a folder nobody looks at AND either
+//               filters on finance or security keywords or has a throwaway name like "." or "..".
+// Tuning:       List all accepted domains in internalDomains; without it only the mailbox
+//               owner's own domain counts as internal. Extend keywords for your language.
+// Limits:       Rules created in Outlook desktop are logged as UpdateInboxRules without the
+//               rule details and are not evaluated here. Forwarding set on the mailbox itself
+//               (Set-Mailbox -ForwardingSmtpAddress) is a different event.
+let lookback = 1h;
+let internalDomains = dynamic([]);  // e.g. ["contoso.com", "contoso.de"]
+let hidingFolders = dynamic(["RSS Feeds", "RSS-Feeds", "RSS Subscriptions", "Conversation History",
+    "Unterhaltungsverlauf", "Archive", "Archiv", "Junk Email", "Junk-E-Mail", "Deleted Items",
+    "Gelöschte Elemente", "Notes", "Notizen"]);
+let keywords = dynamic(["invoice", "payment", "wire", "transfer", "bank", "iban", "rechnung",
+    "zahlung", "überweisung", "password", "passwort", "phish", "phishing", "hacked",
+    "compromised", "security", "sicherheit", "mfa", "helpdesk", "spam", "suspicious"]);
+OfficeActivity
+| where TimeGenerated > ago(lookback)
+| where OfficeWorkload =~ "Exchange"
+| where Operation in~ ("New-InboxRule", "Set-InboxRule")
+| where ResultStatus !in~ ("False", "Failed")
+| extend Mailbox = tolower(coalesce(MailboxOwnerUPN, UserId))
+| extend MailboxDomain = tostring(split(Mailbox, "@")[1])
+// Parameters is a JSON array of {Name, Value}; turn it into one property bag
+| mv-apply Param = todynamic(Parameters) on (
+    summarize Params = make_bag(bag_pack(tostring(Param.Name), Param.Value))
+    )
+| extend
+    RuleName = tostring(Params.Name),
+    ForwardTargets = strcat_delim(";", tostring(Params.ForwardTo), tostring(Params.RedirectTo),
+        tostring(Params.ForwardAsAttachmentTo)),
+    DeletesMail = coalesce(tobool(Params.DeleteMessage), false)
+        or coalesce(tobool(Params.SoftDeleteMessage), false),
+    MarksAsRead = coalesce(tobool(Params.MarkAsRead), false),
+    MoveToFolder = tostring(Params.MoveToFolder),
+    Conditions = tolower(strcat_delim(" ", tostring(Params.SubjectContainsWords),
+        tostring(Params.SubjectOrBodyContainsWords), tostring(Params.BodyContainsWords),
+        tostring(Params.FromAddressContainsWords), tostring(Params.From)))
+| extend ForwardAddresses = extract_all(@"([A-Za-z0-9._%+'\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})",
+    ForwardTargets)
+| mv-apply Address = ForwardAddresses to typeof(string) on (
+    extend AddressDomain = tolower(tostring(split(Address, "@")[1]))
+    | where AddressDomain != MailboxDomain and AddressDomain !in (internalDomains)
+    | summarize ExternalRecipients = make_set(tolower(Address), 20)
+    )
+// MoveToFolder looks like "user@contoso.com:\RSS Feeds" or ":\Archive"
+| extend TargetFolder = trim(@"\s", tostring(split(MoveToFolder, @"\")[-1]))
+| extend
+    ForwardsExternally = array_length(ExternalRecipients) > 0,
+    HidesMail = DeletesMail or TargetFolder in~ (hidingFolders),
+    KeywordFilter = Conditions has_any (keywords),
+    // Set-InboxRule often has no Name parameter, so an empty name does not count
+    ThrowawayName = isnotempty(RuleName)
+        and (strlen(trim(@"\s", RuleName)) <= 2 or RuleName matches regex @"^[\W_]+$")
+| where ForwardsExternally or (HidesMail and (KeywordFilter or ThrowawayName))
+| extend Severity = iff((ForwardsExternally and HidesMail) or (HidesMail and KeywordFilter),
+    "High", "Medium")
+| extend ClientIp = case(
+    ClientIP startswith "[", extract(@"^\[([^\]]+)\]", 1, ClientIP),
+    countof(ClientIP, ":") == 1, tostring(split(ClientIP, ":")[0]),
+    ClientIP)
+| project
+    TimeGenerated, Mailbox, Actor = UserId, Operation, RuleName, Severity, ForwardsExternally,
+    ExternalRecipients, HidesMail, DeletesMail, MarksAsRead, TargetFolder, KeywordFilter,
+    ThrowawayName, Conditions, ClientIp, Parameters
+| order by TimeGenerated desc

@@ -106,6 +106,20 @@ Every finding carries the techniques it is evidence for. The report ends with th
 | [T1553.005](https://attack.mitre.org/techniques/T1553/005/) Mark-of-the-Web Bypass | ISO/IMG/VHD attachments |
 | [T1204.001](https://attack.mitre.org/techniques/T1204/001/) / [.002](https://attack.mitre.org/techniques/T1204/002/) User Execution | Malicious link / malicious file findings |
 
+## Detection rules (KQL)
+
+[`detections/`](detections/) holds three Microsoft Sentinel analytics rules for what happens
+around a reported mail, each mapped to MITRE ATT&CK:
+
+| Rule | ATT&CK |
+|---|---|
+| Entra ID brute force / password spray, raised to High on a follow-up successful sign-in | [T1110.001](https://attack.mitre.org/techniques/T1110/001/), [T1110.003](https://attack.mitre.org/techniques/T1110/003/) |
+| User clicked a link in a mail rated phishing, including verdicts that arrive after the click | [T1566.002](https://attack.mitre.org/techniques/T1566/002/), [T1204.001](https://attack.mitre.org/techniques/T1204/001/) |
+| Inbox rule forwarding mail externally or hiding it (BEC after a phish) | [T1564.008](https://attack.mitre.org/techniques/T1564/008/), [T1114.003](https://attack.mitre.org/techniques/T1114/003/) |
+
+Rule settings, tuning and deployment steps are in [`detections/README.md`](detections/README.md).
+CI checks every query with Microsoft's Kusto.Language analyser.
+
 ## Install and use
 
 Requires Python 3.11+. No third-party runtime dependencies.
@@ -177,7 +191,12 @@ pytest
 ruff check . && ruff format --check .
 ```
 
-GitHub Actions runs lint and the test suite on Python 3.11 to 3.14 for every push and pull request.
+```bash
+npm install --no-save @kusto/language-service-next@12.4.1 && node scripts/check_kql.cjs
+```
+
+GitHub Actions runs lint, the test suite on Python 3.11 to 3.14 and the KQL check for every push
+and pull request.
 
 ## License
 

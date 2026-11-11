@@ -12,3 +12,6 @@ reports/
 *.eml
 !samples/*.eml
 .env
+
+# Node tooling for scripts/check_kql.cjs
+node_modules/

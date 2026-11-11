@@ -1,0 +1,71 @@
+// Title:        User clicked a link in a mail that is (or later turned out to be) phishing
+// ATT&CK:       T1566.002, T1204.001
+// Tactics:      InitialAccess, Execution
+// Severity:     Medium; High when the mail has a phishing/malware verdict (Severity column)
+// Data sources: UrlClickEvents, EmailEvents, EmailPostDeliveryEvents
+//               (Microsoft Defender XDR connector, Defender for Office 365 Safe Links)
+// Schedule:     run every 1h, look back 8d, alert when results > 0, one alert per row
+// Entities:     Account = AccountUpn, URL = Url, IP = ClickIp, MailMessage = NetworkMessageId
+// Description:  Safe Links let a click through (ClickAllowed) on a mail that was rated phish or
+//               malware at delivery or afterwards (ZAP, admin or user report), or the user
+//               clicked through the Safe Links warning page. Verdicts often arrive after the
+//               click, so clicks of the last day are re-checked against verdicts that came in
+//               during the last run interval. This is the step after the mail that phishtriage
+//               analyses: the user did not just receive it, they opened the link.
+// Response:     Triage the mail (phishtriage), reset the password and revoke sessions if the
+//               URL is a credential page, check the sign-in logs of the account after ClickTime.
+// Limits:       Needs Safe Links URL wrapping. Clicks outside Microsoft 365 apps (mail copied
+//               to a private device, links in attachments not scanned) are not visible.
+let alertWindow = 1h;       // must equal the rule frequency, otherwise alerts repeat or get lost
+let clickLookback = 1d;     // how long a click stays eligible for a late verdict
+let mailLookback = 7d;      // how old the mail may be when the link is clicked
+let clicks = UrlClickEvents
+    | where TimeGenerated > ago(clickLookback)
+    | where ActionType == "ClickAllowed" or IsClickedThrough == true
+    | where isnotempty(NetworkMessageId)
+    | project
+        ClickTime = TimeGenerated, NetworkMessageId, AccountUpn = tolower(AccountUpn), Url,
+        ClickAction = ActionType, IsClickedThrough, ClickIp = IPAddress, Workload;
+// First phish/malware verdict per message, at delivery or post-delivery
+let verdicts = union
+        (EmailEvents
+        | where TimeGenerated > ago(mailLookback)
+        | where ThreatTypes has_any ("Phish", "Malware")
+        | project VerdictTime = TimeGenerated, NetworkMessageId, VerdictSource = "Delivery",
+            Threat = ThreatTypes),
+        (EmailPostDeliveryEvents
+        | where TimeGenerated > ago(mailLookback)
+        | where ActionType in ("Phish ZAP", "Malware ZAP") or ThreatTypes has_any ("Phish", "Malware")
+        | project VerdictTime = TimeGenerated, NetworkMessageId, VerdictSource = ActionType,
+            Threat = ThreatTypes)
+    | summarize
+        VerdictTime = min(VerdictTime),
+        VerdictSources = make_set(VerdictSource),
+        Threats = make_set(Threat)
+        by NetworkMessageId;
+let mails = EmailEvents
+    | where TimeGenerated > ago(mailLookback)
+    | summarize arg_min(TimeGenerated, SenderFromAddress, SenderFromDomain, Subject,
+        DeliveryAction, DeliveryLocation) by NetworkMessageId
+    | project-rename DeliveryTime = TimeGenerated;
+clicks
+| join kind=leftouter verdicts on NetworkMessageId
+| extend HasVerdict = isnotnull(VerdictTime)
+| extend Reason = case(
+    HasVerdict and IsClickedThrough, "Clicked through Safe Links warning; mail rated phish/malware",
+    HasVerdict, "Click allowed; mail rated phish/malware at delivery or later",
+    IsClickedThrough, "Clicked through Safe Links warning page",
+    "")
+| where isnotempty(Reason)
+// Report each click once: when it happens, or when a verdict for an earlier click arrives
+| where ClickTime > ago(alertWindow) or VerdictTime > ago(alertWindow)
+| join kind=leftouter mails on NetworkMessageId
+| extend
+    Severity = iff(HasVerdict, "High", "Medium"),
+    VerdictAfterClick = HasVerdict and VerdictTime > ClickTime
+| project
+    ClickTime, AccountUpn, Url, Reason, Severity, ClickAction, IsClickedThrough, ClickIp,
+    Workload, VerdictTime, VerdictAfterClick, VerdictSources, Threats, DeliveryTime,
+    SenderFromAddress, SenderFromDomain, Subject, DeliveryAction, DeliveryLocation,
+    NetworkMessageId
+| order by ClickTime desc
