@@ -144,6 +144,13 @@ Keys are read from environment variables only and never written to the report. A
 that source. Only SHA-256 hashes and public relay IPs are sent; no message content, URLs or
 addresses leave the machine. Internal and documentation-range IPs are never looked up.
 
+## Microsoft Sentinel playbook
+
+[`playbooks/Notify-CreateIncident-OnAlert`](playbooks/Notify-CreateIncident-OnAlert/) is a Logic App
+playbook (ARM template) that runs on a Sentinel alert, creates an incident for it from a
+configurable severity on, links the alert, and notifies the SOC by e-mail and optionally Teams.
+Deployment and setup steps are in its [README](playbooks/Notify-CreateIncident-OnAlert/README.md).
+
 ## Design notes and limits
 
 - **Static analysis only.** Nothing is opened, rendered, detonated or fetched (apart from the
