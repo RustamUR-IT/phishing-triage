@@ -86,6 +86,13 @@ The same data as JSON (`-f json`), for SOAR playbooks or scripts:
 The score is a sum of severities (high 5, medium 3, low 1) and the verdict is a triage hint to sort
 the queue. It does not replace an analyst.
 
+**Documentation**
+
+- [Architecture](docs/ARCHITECTURE.md): pipeline diagram, modules and design decisions.
+- [Rules and false positives](docs/RULES.md): every rule with severity, ATT&CK mapping, the false
+  positives it produced and how they were reduced. Each fix is pinned by a benign/malicious test
+  pair in [`tests/test_false_positives.py`](tests/test_false_positives.py).
+
 ## MITRE ATT&CK mapping
 
 Every finding carries the techniques it is evidence for. The report ends with the deduplicated list.
@@ -152,8 +159,10 @@ addresses leave the machine. Internal and documentation-range IPs are never look
   it may have been forged by the sender. In production, pin this to your own `authserv-id`.
 - **Base domains** use a small built-in suffix list instead of the full Public Suffix List, to stay
   dependency-free. Good enough for sender comparisons, not for every ccTLD.
-- **Not a verdict engine.** The heuristics favour recall; a legitimate newsletter sent through a
-  mailing service can show a Return-Path mismatch (rated *low* for that reason).
+- **Not a verdict engine.** The heuristics favour recall. Known noise is handled by context rather
+  than by deleting rules: a passing DMARC result downgrades SPF/DKIM failures and suppresses the
+  Return-Path check, and allowlisted domains are exempt from link and Reply-To checks. See
+  [docs/RULES.md](docs/RULES.md).
 
 ## Test data notice
 
