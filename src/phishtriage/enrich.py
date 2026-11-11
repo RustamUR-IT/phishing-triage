@@ -22,6 +22,8 @@ VT_FILE_URL = "https://www.virustotal.com/api/v3/files/{}"
 VT_GUI_URL = "https://www.virustotal.com/gui/file/{}"
 ABUSEIPDB_URL = "https://api.abuseipdb.com/api/v2/check"
 TIMEOUT = 15
+VT_HIGH_THRESHOLD = 3  # engines needed for a high-severity finding
+ABUSE_THRESHOLD = 50  # AbuseIPDB confidence (%) needed for a finding
 
 # fetch(url, headers) -> (http_status, parsed_json_or_None)
 Fetch = Callable[[str, dict], tuple[int, dict | None]]
@@ -91,15 +93,21 @@ def enrich(
     else:
         result["virustotal"] = [virustotal_file(h, vt_key, fetch) for h in dict.fromkeys(hashes)]
         for r in result["virustotal"]:
-            if r.get("malicious", 0) > 0:
-                findings.append(
-                    Finding(
-                        "intel.vt_malicious",
-                        "high",
-                        f"VirusTotal: {r['malicious']} engines flag {r['sha256'][:16]}...",
-                        ("T1566.001", "T1204.002"),
-                    )
+            hits = r.get("malicious", 0)
+            if hits >= VT_HIGH_THRESHOLD:
+                sev = "high"
+            elif hits > 0:
+                sev = "low"  # one or two engines alone are often heuristic noise
+            else:
+                continue
+            findings.append(
+                Finding(
+                    "intel.vt_malicious",
+                    sev,
+                    f"VirusTotal: {hits} engine(s) flag {r['sha256'][:16]}...",
+                    ("T1566.001", "T1204.002"),
                 )
+            )
 
     abuse_key = env.get("ABUSEIPDB_API_KEY")
     if not abuse_key:
@@ -107,7 +115,7 @@ def enrich(
     else:
         result["abuseipdb"] = [abuseipdb_ip(ip, abuse_key, fetch) for ip in dict.fromkeys(ips)]
         for r in result["abuseipdb"]:
-            if (r.get("abuse_confidence") or 0) >= 50:
+            if (r.get("abuse_confidence") or 0) >= ABUSE_THRESHOLD:
                 findings.append(
                     Finding(
                         "intel.abuseipdb_reported",

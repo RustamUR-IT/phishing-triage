@@ -8,7 +8,13 @@ from email.message import EmailMessage
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
-from phishtriage.domains import defang_domain, defang_url, is_allowlisted, normalize
+from phishtriage.domains import (
+    base_domain,
+    defang_domain,
+    defang_url,
+    is_allowlisted,
+    normalize,
+)
 from phishtriage.findings import Finding
 
 _URL_RE = re.compile(r"""(?:https?|ftp)://[^\s<>"'(){}\[\]]+|\bwww\.[^\s<>"'(){}\[\]]+""", re.I)
@@ -159,7 +165,12 @@ def extract_urls(msg: EmailMessage, allowlist: set[str]) -> tuple[list[dict], li
                 if not (m and href_host):
                     continue
                 shown = normalize(m.group(1))
-                if shown != href_host and not href_host.endswith("." + shown):
+                # Same registrable domain (www.example.com -> example.com) is not a
+                # disguise; neither is an allowlisted target such as your own
+                # click-tracking or Safe Links rewriter.
+                if base_domain(shown) != base_domain(href_host) and not is_allowlisted(
+                    href_host, allowlist
+                ):
                     mismatches.append(
                         {
                             "shown": text,
@@ -194,6 +205,8 @@ def url_findings(urls: list[dict], mismatches: list[dict]) -> list[Finding]:
         "userinfo-in-url": ("url.userinfo", "high", "URL contains user@host (obscures target)"),
     }
     for url in urls:
+        if url["allowlisted"]:
+            continue  # e.g. a legitimate IDN domain or an intranet port you trust
         for flag in url["flags"]:
             if flag in rules:
                 fid, sev, msg = rules[flag]

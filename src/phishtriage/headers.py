@@ -7,7 +7,13 @@ import re
 from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
 
-from phishtriage.domains import base_domain, defang_domain, domain_of
+from phishtriage.domains import (
+    base_domain,
+    defang_domain,
+    domain_of,
+    is_allowlisted,
+    looks_like_domain,
+)
 from phishtriage.findings import Finding
 
 _AUTH_RE = re.compile(r"\b(spf|dkim|dmarc)\s*=\s*([a-z]+)", re.I)
@@ -173,23 +179,34 @@ def parse_sender(msg: Message) -> dict:
     }
 
 
-def header_findings(sender: dict, auth: dict) -> list[Finding]:
+def header_findings(sender: dict, auth: dict, allowlist: set[str] | None = None) -> list[Finding]:
+    allowlist = allowlist or set()
     out: list[Finding] = []
+    dmarc_pass = auth.get("dmarc") == "pass"
     for mech in ("spf", "dkim", "dmarc"):
         res = auth.get(mech)
         if res is None:
             out.append(Finding(f"auth.{mech}_missing", "low", f"No {mech.upper()} result found"))
             continue
         sev = _AUTH_SEVERITY[mech].get(res)
-        if sev:
-            out.append(
-                Finding(f"auth.{mech}_{res}", sev, f"{mech.upper()} result: {res}", ("T1672",))
-            )
+        if not sev:
+            continue
+        msg = f"{mech.upper()} result: {res}"
+        if dmarc_pass and mech in ("spf", "dkim"):
+            # DMARC passed, so the other mechanism was aligned and valid. A broken
+            # SPF/DKIM result alone is then typical for forwarding and mailing lists.
+            sev, msg = "info", f"{msg} (DMARC passed via the other mechanism)"
+        out.append(Finding(f"auth.{mech}_{res}", sev, msg, ("T1672",)))
 
     from_dom = domain_of(sender["from_address"])
     rp_dom = domain_of(sender["return_path"])
     rt_dom = domain_of(sender["reply_to"])
-    if from_dom and rp_dom and base_domain(from_dom) != base_domain(rp_dom):
+    if (
+        from_dom
+        and rp_dom
+        and not dmarc_pass  # aligned DKIM covers bounces handled by a mailing service
+        and base_domain(from_dom) != base_domain(rp_dom)
+    ):
         out.append(
             Finding(
                 "sender.return_path_mismatch",
@@ -200,7 +217,12 @@ def header_findings(sender: dict, auth: dict) -> list[Finding]:
                 ("T1672",),
             )
         )
-    if from_dom and rt_dom and base_domain(from_dom) != base_domain(rt_dom):
+    if (
+        from_dom
+        and rt_dom
+        and base_domain(from_dom) != base_domain(rt_dom)
+        and not is_allowlisted(rt_dom, allowlist)  # e.g. your own ticket system
+    ):
         out.append(
             Finding(
                 "sender.reply_to_mismatch",
@@ -211,7 +233,7 @@ def header_findings(sender: dict, auth: dict) -> list[Finding]:
             )
         )
     name = sender["from_name"] or ""
-    claimed = {base_domain(d) for d in _DOMAIN_IN_TEXT_RE.findall(name)}
+    claimed = {base_domain(d) for d in _DOMAIN_IN_TEXT_RE.findall(name) if looks_like_domain(d)}
     if from_dom and claimed and base_domain(from_dom) not in claimed:
         out.append(
             Finding(

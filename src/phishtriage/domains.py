@@ -27,7 +27,33 @@ _TWO_LABEL_SUFFIXES = {
     "or.at",
     "ac.at",
     "gv.at",
+    # Shared hosting where every customer gets a subdomain (PSL "private" section).
+    # Treating them as suffixes keeps victim.github.io and attacker.github.io apart.
+    "github.io",
+    "blogspot.com",
+    "herokuapp.com",
+    "azurewebsites.net",
+    "sharepoint.com",
+    "web.app",
+    "firebaseapp.com",
+    "appspot.com",
+    "netlify.app",
+    "pages.dev",
+    "workers.dev",
+    "vercel.app",
 }
+
+# TLDs that a domain mentioned in free text (e.g. a display name) must end in to
+# count as a domain. Without this, "max.mustermann" or "j.doe" in a display name
+# would be read as domains. Includes the RFC 2606/6761 reserved test TLDs.
+KNOWN_TLDS = frozenset(
+    """
+    com net org info biz edu gov mil int io co ai app dev cloud online site shop store
+    xyz top club live email tech eu de at ch li uk fr it es nl be lu dk se no fi pl cz sk
+    hu ro bg gr pt ie ru ua tr us ca mx br ar au nz jp cn hk kr in sg za
+    test example invalid localhost
+    """.split()  # noqa: SIM905 - a word list is easier to review than 70 quoted strings
+)
 
 _SCHEME_RE = re.compile(r"^(?P<scheme>[a-z][a-z0-9+.-]*)://(?P<netloc>[^/?#]*)(?P<rest>.*)$", re.I)
 _SCHEME_DEFANG = {"http": "hxxp", "https": "hxxps", "ftp": "fxp"}
@@ -65,6 +91,11 @@ def base_domain(domain: str | None) -> str:
     if len(labels) >= 3 and ".".join(labels[-2:]) in _TWO_LABEL_SUFFIXES:
         return ".".join(labels[-3:])
     return ".".join(labels[-2:])
+
+
+def looks_like_domain(text: str) -> bool:
+    """True if text ends in a known TLD (used for domains found in free text)."""
+    return normalize(text).rpartition(".")[2] in KNOWN_TLDS
 
 
 def domain_of(address: str | None) -> str:

@@ -39,7 +39,7 @@ def analyze(
     urls, mismatches = extract_urls(msg, allowlist)
     attachments = analyze_attachments(msg)
 
-    findings = header_findings(sender, auth) + url_findings(urls, mismatches)
+    findings = header_findings(sender, auth, allowlist) + url_findings(urls, mismatches)
     findings += attachment_findings(attachments)
 
     enrichment = None

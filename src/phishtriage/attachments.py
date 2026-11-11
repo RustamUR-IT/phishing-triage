@@ -11,6 +11,12 @@ from pathlib import PurePosixPath
 
 from phishtriage.findings import Finding
 
+# Formats that are ZIP files on disk but are not plain archives. Without these an
+# .odt or .epub would be reported as "extension .odt but content is zip".
+_ZIP_CONTAINERS = frozenset(
+    {"odt", "ods", "odp", "odg", "epub", "jar", "apk", "xps", "oxps", "vsdx", "kmz", "3mf"}
+)
+
 # (offset, magic, label, expected extensions)
 _SIGNATURES: list[tuple[int, bytes, str, frozenset[str]]] = [
     (0, b"%PDF-", "pdf", frozenset({"pdf"})),
@@ -20,10 +26,11 @@ _SIGNATURES: list[tuple[int, bytes, str, frozenset[str]]] = [
         0,
         b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",
         "ole2",
-        frozenset({"doc", "xls", "ppt", "msi", "msg"}),
+        # OLE2 also carries Outlook items, Publisher, Visio and old templates
+        frozenset({"doc", "dot", "xls", "xlt", "ppt", "pps", "msi", "msg", "pub", "vsd"}),
     ),
-    (0, b"PK\x03\x04", "zip", frozenset({"zip"})),
-    (0, b"PK\x05\x06", "zip", frozenset({"zip"})),
+    (0, b"PK\x03\x04", "zip", frozenset({"zip"}) | _ZIP_CONTAINERS),
+    (0, b"PK\x05\x06", "zip", frozenset({"zip"}) | _ZIP_CONTAINERS),
     (0, b"Rar!\x1a\x07", "rar", frozenset({"rar"})),
     (0, b"7z\xbc\xaf\x27\x1c", "7z", frozenset({"7z"})),
     (0, b"\x1f\x8b", "gzip", frozenset({"gz", "tgz"})),
@@ -227,7 +234,17 @@ def attachment_findings(attachments: list[dict]) -> list[Finding]:
         archive = a.get("archive") or {}
         if archive.get("macros"):
             out.append(Finding("att.macros", "high", f"{name}: contains VBA macros", deliver))
-        if kind == "ole2":
+        if kind == "ole2" and ext == "msg":
+            # Users often report phishing by forwarding it as an Outlook item.
+            # That is the evidence, not a payload; triage the .msg separately.
+            out.append(
+                Finding(
+                    "att.legacy_office",
+                    "info",
+                    f"{name}: attached Outlook message, analyse it separately",
+                )
+            )
+        elif kind == "ole2":
             out.append(
                 Finding(
                     "att.legacy_office",
