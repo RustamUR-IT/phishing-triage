@@ -1,0 +1,23 @@
+Return-Path: <news-bounces@lists.example.org>
+Received: from mx01.example.com (mx01.example.com [192.0.2.10])
+	by mailstore.example.com with LMTP; Wed, 04 Nov 2026 10:00:09 +0100
+Authentication-Results: mx01.example.com;
+	spf=pass smtp.mailfrom=lists.example.org;
+	dkim=pass header.d=example.org header.s=news2026;
+	dmarc=pass (p=reject) header.from=example.org
+Received: from out.lists.example.org (out.lists.example.org [198.51.100.5])
+	by mx01.example.com (Postfix) with ESMTPS id 1A2B3C4D5E
+	for <max.mustermann@example.com>; Wed, 04 Nov 2026 10:00:07 +0100
+From: Example Org Newsletter <news@example.org>
+To: max.mustermann@example.com
+Subject: Monatlicher Newsletter November 2026
+Date: Wed, 04 Nov 2026 09:00:00 +0000
+Message-ID: <nl-2026-11@example.org>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+<h1>Neuigkeiten im November</h1>
+<p>Alle Artikel finden Sie auf <a href="https://www.example.org/news/2026-11">www.example.org</a>.</p>
+<p><a href="https://www.example.org/unsubscribe">Abmelden</a></p>
+</body></html>

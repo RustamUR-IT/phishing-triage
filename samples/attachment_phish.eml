@@ -1,0 +1,61 @@
+Return-Path: <rechnung@billing-portal.test>
+Received: from mx01.example.com (mx01.example.com [192.0.2.10])
+	by mailstore.example.com with LMTP; Mon, 09 Nov 2026 14:02:41 +0100
+Authentication-Results: mx01.example.com;
+	spf=pass smtp.mailfrom=billing-portal.test;
+	dkim=pass header.d=billing-portal.test;
+	dmarc=pass header.from=billing-portal.test
+Received: from smtp.billing-portal.test (smtp.billing-portal.test [198.51.100.77])
+	by mx01.example.com (Postfix) with ESMTPS id 9C3D2E0042
+	for <buchhaltung@example.com>; Mon, 09 Nov 2026 14:02:39 +0100
+From: Buchhaltung Lieferant <rechnung@billing-portal.test>
+To: buchhaltung@example.com
+Subject: Offene Rechnung 2026-0117 - Zahlungserinnerung
+Date: Mon, 09 Nov 2026 13:02:30 +0000
+Message-ID: <inv-2026-0117@billing-portal.test>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="b2_mix"
+
+--b2_mix
+Content-Type: text/plain; charset=utf-8
+
+Guten Tag,
+
+anbei die offene Rechnung sowie der Lieferschein. Bitte begleichen Sie den
+Betrag bis Freitag. Die Rechnung mit Makros bitte "Inhalt aktivieren".
+
+Mit freundlichen Grüßen
+
+--b2_mix
+Content-Type: application/pdf; name="Rechnung_2026-0117.pdf.exe"
+Content-Disposition: attachment; filename="Rechnung_2026-0117.pdf.exe"
+Content-Transfer-Encoding: base64
+
+TVoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAQAAAAHN5bnRoZXRpYyB0ZXN0IHN0dWIgLSBub3QgYW4gZXhlY3V0YWJsZQo=
+
+--b2_mix
+Content-Type: application/pdf; name="Lieferschein_0117.pdf"
+Content-Disposition: attachment; filename="Lieferschein_0117.pdf"
+Content-Transfer-Encoding: base64
+
+UEsDBBQAAAAAAABIYl2c8EJMNgAAADYAAAAUAAAATGllZmVyc2NoZWluXzAxMTcuanMvLyBzeW50
+aGV0aWMgdGVzdCBmaWxlIGZvciBwaGlzaHRyaWFnZSAtIGRvZXMgbm90aGluZwpQSwECFAMUAAAA
+AAAASGJdnPBCTDYAAAA2AAAAFAAAAAAAAAAAAAAAgAEAAAAATGllZmVyc2NoZWluXzAxMTcuanNQ
+SwUGAAAAAAEAAQBCAAAAaAAAAAAA
+
+--b2_mix
+Content-Type: application/vnd.ms-word.document.macroEnabled.12; name="Rechnung_Details.docm"
+Content-Disposition: attachment; filename="Rechnung_Details.docm"
+Content-Transfer-Encoding: base64
+
+UEsDBBQAAAAAAABIYl0nVYgkHQAAAB0AAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbDw/eG1sIHZl
+cnNpb249JzEuMCc/PjxUeXBlcy8+UEsDBBQAAAAAAABIYl1+8TikIAAAACAAAAARAAAAd29yZC9k
+b2N1bWVudC54bWw8P3htbCB2ZXJzaW9uPScxLjAnPz48ZG9jdW1lbnQvPlBLAwQUAAAAAAAASGJd
+1MWQFyIAAAAiAAAAEwAAAHdvcmQvdmJhUHJvamVjdC5iaW5zeW50aGV0aWMgcGxhY2Vob2xkZXIs
+IG5vIFZCQSBjb2RlUEsBAhQDFAAAAAAAAEhiXSdViCQdAAAAHQAAABMAAAAAAAAAAAAAAIABAAAA
+AFtDb250ZW50X1R5cGVzXS54bWxQSwECFAMUAAAAAAAASGJdfvE4pCAAAAAgAAAAEQAAAAAAAAAA
+AAAAgAFOAAAAd29yZC9kb2N1bWVudC54bWxQSwECFAMUAAAAAAAASGJd1MWQFyIAAAAiAAAAEwAA
+AAAAAAAAAAAAgAGdAAAAd29yZC92YmFQcm9qZWN0LmJpblBLBQYAAAAAAwADAMEAAADwAAAAAAA=
+
+--b2_mix--
