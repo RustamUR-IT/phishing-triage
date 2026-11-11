@@ -1,0 +1,22 @@
+```phishtriage hunt: script host started from an archive/download/mail attachment (stage 1),
+with the processes it spawned (stage 2). Data: Sysmon via Splunk Add-on for Microsoft Sysmon.
+Same logic as hunting/sigma/*.yml. Adjust index and time range. ```
+index=* source="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 earliest=-7d
+    (Image="*\\wscript.exe" OR Image="*\\cscript.exe" OR Image="*\\mshta.exe"
+     OR OriginalFileName IN ("wscript.exe", "cscript.exe", "MSHTA.EXE"))
+    (ParentImage="*\\explorer.exe" OR ParentImage="*\\outlook.exe" OR ParentImage="*\\winrar.exe"
+     OR ParentImage="*\\7zFM.exe" OR ParentImage="*\\7zG.exe" OR ParentImage="*\\msedge.exe"
+     OR ParentImage="*\\chrome.exe" OR ParentImage="*\\firefox.exe")
+    (CommandLine="*\\Downloads\\*" OR CommandLine="*\\AppData\\Local\\Temp\\*"
+     OR CommandLine="*\\Content.Outlook\\*" OR CommandLine="*\\INetCache\\*")
+| join type=left max=0 host ProcessGuid
+    [ search index=* source="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 earliest=-7d
+        (ParentImage="*\\wscript.exe" OR ParentImage="*\\cscript.exe" OR ParentImage="*\\mshta.exe")
+        (Image="*\\cmd.exe" OR Image="*\\powershell.exe" OR Image="*\\pwsh.exe" OR Image="*\\rundll32.exe"
+         OR Image="*\\regsvr32.exe" OR Image="*\\msiexec.exe" OR Image="*\\certutil.exe"
+         OR Image="*\\bitsadmin.exe" OR Image="*\\curl.exe" OR Image="*\\schtasks.exe")
+    | stats values(Image) AS child_image values(CommandLine) AS child_cmdline by host ParentProcessGuid
+    | rename ParentProcessGuid AS ProcessGuid ]
+| eval stage = if(isnull(child_image), "stage 1 only", "stage 1 + 2")
+| table _time host User stage ParentImage Image CommandLine child_image child_cmdline
+| sort - _time

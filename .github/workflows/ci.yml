@@ -39,3 +39,5 @@ jobs:
       - name: Smoke test CLI on samples
         run: |
           for f in samples/*.eml; do phishtriage "$f" -a allowlist.example.txt > /dev/null; done
+      - name: Hunt on simulated attack events
+        run: python hunting/hunt.py hunting/testdata/simulated_attack.jsonl --expect-chain

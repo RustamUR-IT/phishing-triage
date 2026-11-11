@@ -1,0 +1,57 @@
+title: Script Host Runs a Script the User Opened From an Archive, Download or Mail Attachment
+id: 5b0f6c1e-2d7a-4f3e-9a51-7c8e2b4d9f10
+status: experimental
+description: |
+  Stage 1 of the attachment-phishing chain that phishtriage flags in mail
+  (for example a ZIP disguised as a PDF that contains a .js file). It fires when
+  wscript.exe, cscript.exe or mshta.exe is started by Explorer, Outlook, an
+  archiver or a browser and the command line points into Downloads, the Temp
+  folder that Explorer and archivers extract to, or the Outlook attachment cache.
+references:
+  - https://attack.mitre.org/techniques/T1204/002/
+  - https://attack.mitre.org/techniques/T1059/007/
+  - https://attack.mitre.org/techniques/T1566/001/
+author: phishtriage
+date: 2026-11-11
+tags:
+  - attack.execution
+  - attack.t1204.002
+  - attack.t1059.005
+  - attack.t1059.007
+  - attack.t1218.005
+  - attack.initial-access
+  - attack.t1566.001
+logsource:
+  product: windows
+  category: process_creation  # Sysmon Event ID 1
+detection:
+  selection_host:
+    - Image|endswith:
+        - '\wscript.exe'
+        - '\cscript.exe'
+        - '\mshta.exe'
+    - OriginalFileName:  # still matches if the binary was copied and renamed
+        - 'wscript.exe'
+        - 'cscript.exe'
+        - 'MSHTA.EXE'
+  selection_parent:
+    ParentImage|endswith:
+      - '\explorer.exe'
+      - '\outlook.exe'
+      - '\winrar.exe'
+      - '\7zFM.exe'
+      - '\7zG.exe'
+      - '\msedge.exe'
+      - '\chrome.exe'
+      - '\firefox.exe'
+  selection_path:
+    CommandLine|contains:
+      - '\Downloads\'
+      - '\AppData\Local\Temp\'  # Temp1_<name>.zip\, Rar$EXa..., 7zO...
+      - '\Content.Outlook\'  # attachment opened straight from Outlook
+      - '\INetCache\'
+  condition: selection_host and selection_parent and selection_path
+falsepositives:
+  - Admins or power users running their own .vbs/.js helper from Downloads
+  - Installers that unpack to Temp and start a script through Explorer (rare)
+level: high

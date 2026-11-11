@@ -1,0 +1,48 @@
+title: Script Host Spawns Shell, PowerShell or a Download/Proxy-Execution Binary
+id: 9e3a7d42-6c18-4b0e-8f2d-1a5c4e7b3d26
+status: experimental
+description: |
+  Stage 2 of the chain: the script started in stage 1 hands off to the next tool.
+  wscript.exe, cscript.exe or mshta.exe as the parent of cmd, PowerShell or a
+  binary that is commonly used to download or proxy-execute a payload. The
+  runner links stage 2 to stage 1 through ParentProcessGuid -> ProcessGuid.
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+  - https://attack.mitre.org/techniques/T1059/003/
+  - https://attack.mitre.org/techniques/T1218/
+author: phishtriage
+date: 2026-11-11
+tags:
+  - attack.execution
+  - attack.t1059.001
+  - attack.t1059.003
+  - attack.defense-evasion
+  - attack.t1218
+  - attack.command-and-control
+  - attack.t1105
+logsource:
+  product: windows
+  category: process_creation  # Sysmon Event ID 1
+detection:
+  selection_parent:
+    ParentImage|endswith:
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+  selection_child:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\msiexec.exe'
+      - '\certutil.exe'
+      - '\bitsadmin.exe'
+      - '\curl.exe'
+      - '\schtasks.exe'
+  condition: selection_parent and selection_child
+falsepositives:
+  - Logon scripts (VBS) that call cmd.exe; filter by parent command line pointing to NETLOGON
+  - Software inventory or admin scripts run with cscript.exe
+level: medium

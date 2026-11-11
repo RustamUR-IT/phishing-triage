@@ -144,6 +144,20 @@ Keys are read from environment variables only and never written to the report. A
 that source. Only SHA-256 hashes and public relay IPs are sent; no message content, URLs or
 addresses leave the machine. Internal and documentation-range IPs are never looked up.
 
+## Endpoint hunt: after the attachment is opened
+
+[`hunting/`](hunting/) picks up where the mail report ends. It has a Sigma hunting query (plus
+Splunk and Defender XDR KQL versions) for `wscript`/`cscript`/`mshta` started on a file from an
+archive, a download or a mail attachment, and for the shell or PowerShell that file starts. It
+also has a harmless PowerShell simulation of that chain for your own lab VM, and an offline
+runner that checks the exported Sysmon events:
+
+```bash
+python hunting/hunt.py hunting/testdata/simulated_attack.jsonl --expect-chain
+```
+
+Setup, run steps, tuning and limits are in [`hunting/README.md`](hunting/README.md).
+
 ## Design notes and limits
 
 - **Static analysis only.** Nothing is opened, rendered, detonated or fetched (apart from the

@@ -1,0 +1,32 @@
+// phishtriage hunt: script host started from an archive/download/mail attachment (stage 1),
+// with the processes it spawned (stage 2). Microsoft Defender XDR advanced hunting
+// (also works in Sentinel with the Defender XDR connector: use TimeGenerated instead of Timestamp).
+// Same logic as hunting/sigma/*.yml.
+let lookback = 7d;
+let ScriptHosts = dynamic(["wscript.exe", "cscript.exe", "mshta.exe"]);
+let Launchers = dynamic(["explorer.exe", "outlook.exe", "winrar.exe", "7zfm.exe", "7zg.exe",
+    "msedge.exe", "chrome.exe", "firefox.exe"]);
+let Stage2Tools = dynamic(["cmd.exe", "powershell.exe", "pwsh.exe", "rundll32.exe", "regsvr32.exe",
+    "msiexec.exe", "certutil.exe", "bitsadmin.exe", "curl.exe", "schtasks.exe"]);
+let Stage1 = DeviceProcessEvents
+    | where Timestamp > ago(lookback)
+    | where FileName in~ (ScriptHosts) or ProcessVersionInfoOriginalFileName in~ (ScriptHosts)
+    | where InitiatingProcessFileName in~ (Launchers)
+    | where ProcessCommandLine matches regex
+        @"(?i)\\(Downloads|AppData\\Local\\Temp|Content\.Outlook|INetCache)\\"
+    | project Timestamp, DeviceId, DeviceName, AccountName, ParentImage = InitiatingProcessFileName,
+        Image = FileName, CommandLine = ProcessCommandLine, ProcessId, ProcessCreationTime, SHA256;
+let Stage2 = DeviceProcessEvents
+    | where Timestamp > ago(lookback)
+    | where InitiatingProcessFileName in~ (ScriptHosts) and FileName in~ (Stage2Tools)
+    // A PID is only unique together with the process start time.
+    | project DeviceId, ProcessId = InitiatingProcessId,
+        ProcessCreationTime = InitiatingProcessCreationTime, ChildImage = FileName,
+        ChildCommandLine = ProcessCommandLine;
+Stage1
+| join kind=leftouter Stage2 on DeviceId, ProcessId, ProcessCreationTime
+| summarize ChildImages = make_set_if(ChildImage, isnotempty(ChildImage)),
+    ChildCommandLines = make_set_if(ChildCommandLine, isnotempty(ChildCommandLine))
+    by Timestamp, DeviceName, AccountName, ParentImage, Image, CommandLine, SHA256
+| extend Stage = iff(array_length(ChildImages) > 0, "stage 1 + 2", "stage 1 only")
+| order by Timestamp desc
